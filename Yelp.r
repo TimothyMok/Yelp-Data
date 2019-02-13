@@ -1,16 +1,24 @@
-# Install the library to reach the JSON type file
-install.packages("rjson");
+# Install and load the jsonlite library 
+install.packages("jsonlite")
+library("jsonlite")
 
-# Load the rjson package from the library
-library("rjson")
+# load in each individual json file and put them into datasets via jsonlite
+business<-stream_in(file("business.json"))
+head(business,3)
 
-# 
-business<-fromJSON(file="business.json")
-businessdf<-as.data.frame(business)
+review<-stream_in(file("review.json"))
+head(review,3)
 
-review<-fromJSON(file="review.json")
-print(review)
+user<-stream_in(file("user.json"))
+head(user,3)
 
-photo<-fromJSON(file="photo.json")
-photoDF<-as.data.frame(photo)
-print(photoDF)
+checkin<-stream_in(file("checkin.json"))
+head(checkin,3)
+
+tip<-stream_in(file("tip.json"))
+head(tip,3)
+
+photo<-stream_in(file("photo.json"))
+head(photo,3)
+
+
