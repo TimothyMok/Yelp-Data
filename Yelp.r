@@ -9,8 +9,10 @@
 # Install and load the jsonlite library 
 install.packages("jsonlite")
 install.packages("tibble")
+install.packages("dplyr")
 library("jsonlite")
 library("tibble")
+library("dplyr")
 
 ######################################################################################
 ##     ETL of dataset, first set working directory of R to the dataset folder.      ##
