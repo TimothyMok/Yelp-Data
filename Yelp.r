@@ -44,7 +44,7 @@ nrow(business$hours)
 # Total of hours that is all NA, in which no business hours being input 
 # (44,830)
 sum(rowSums(is.na(business$hours))==7)
-
+#
 
 
 ######################################################################################
