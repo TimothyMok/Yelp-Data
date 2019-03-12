@@ -1,76 +1,78 @@
-######################################################################################
-######################################################################################
-##                              Student: Timothy Mok                                ##   
-##                               Course: CMKE 136                                   ##
-##                                Dataset: Yelp                                     ##
-######################################################################################
-######################################################################################
-
-# Install and load the jsonlite library 
-install.packages("jsonlite")
-install.packages("tibble")
-install.packages("dplyr")
-library("jsonlite")
-library("tibble")
-library("dplyr")
-
-######################################################################################
-##     ETL of dataset, first set working directory of R to the dataset folder.      ##
-######################################################################################
-
-# load in each individual json file and put them into datasets via jsonlite
-business<-stream_in(file("business.json"))
-head(business,15)
-
-# Flatten the dataset
-businessf<-flatten(business)
-str(businessf)
-
-# Apply the flatten dataset to a data frame
-businesst<-as.data.frame(businessf)
-head(businesst,5)
-
-######################################################################################
-##                         Exploratory Analysis on Dataset                          ##
-######################################################################################
-
-# Display all the attribute names
-matrix(colnames(business),nrow=length(business))
-
-# Count the total number of rows in business hours 
-# (192,609)
-nrow(business$hours)
-
-# Total of hours that is all NA, in which no business hours being input 
-# (44,830)
-sum(rowSums(is.na(business$hours))==7)
-#
-
-
-######################################################################################
-review<-stream_in(file("review.json"))
-head(review,3)
-
-user<-stream_in(file("user.json"))
-head(user,3)
-
-checkin<-stream_in(file("checkin.json"))
-head(checkin,3)
-
-tip<-stream_in(file("tip.json"))
-head(tip,3)
-
-photo<-stream_in(file("photo.json"))
-head(photo,3)
-
-######################################################################################
-######################################################################################
-######################################################################################
-######################################################################################
-######################################################################################
 install.packages("data.table")
+install.packages("tm")
+install.packages("SnowballC")
+install.packages("Matrix")
+install.packages("crqanlp")
+
 library("data.table")
-data<-fread("yelp_review.csv")
+library("NLP")
+library("tm")
+library("Matrix")
+library("SnowballC")
+library("crqanlp")
 
 
+##***************
+## business<-fread("yelp_business.csv")
+review<-fread("yelp_review.csv")
+
+## str(business)
+## str(review)
+
+
+########################################################################
+########################################################################
+########################################################################
+########################################################################
+########################################################################
+
+
+## Version 2 - "positive comments"
+review<-fread("yelp_review.csv")
+review<-review[,c(3,4,6)]
+## business<-business[,c(1,2,5,10,13)]
+review<-subset(review, stars>3)
+review<-review[,3]
+##***************
+
+corpus <- Corpus(VectorSource(review$text))
+
+# process text (your methods may differ)
+skipWords <- function(x) removeWords(x, stopwords("english"))
+funcs <- list(tolower, removePunctuation, removeNumbers, stripWhitespace, skipWords)
+a <- tm_map(corpus, FUN = tm_reduce, tmFuns = funcs)
+a.dtm1 <- TermDocumentMatrix(a, control = list(wordLengths = c(3,10)))
+
+a.dtm2<-removeSparseTerms(a.dtm1, 0.97)
+m <- as.matrix(a.dtm2)
+v <- sort(rowSums(m), decreasing=TRUE)
+head(v, 70)
+
+########################################################################
+########################################################################
+########################################################################
+########################################################################
+########################################################################
+
+
+## Version 3 - "negative comments"
+review<-fread("yelp_review.csv")
+review<-review[,c(3,4,6)]
+## business<-business[,c(1,2,5,10,13)]
+review<-subset(review, stars<3)
+review<-review[,3]
+##***************
+
+corpus <- Corpus(VectorSource(review$text))
+
+# process text (your methods may differ)
+skipWords <- function(x) removeWords(x, stopwords("english"))
+funcs <- list(tolower, removePunctuation, removeNumbers, stripWhitespace, skipWords)
+a <- tm_map(corpus, FUN = tm_reduce, tmFuns = funcs)
+a.dtm1 <- TermDocumentMatrix(a, control = list(wordLengths = c(3,10)))
+
+a.dtm2<-removeSparseTerms(a.dtm1, 0.97)
+m <- as.matrix(a.dtm2)
+v <- sort(rowSums(m), decreasing=TRUE)
+head(v, 300)
 
