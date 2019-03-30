@@ -1,0 +1,78 @@
+---
+title: "Yelp Data Analysis"
+output:
+  pdf_document: default
+---
+
+```{r}
+# Library initiation
+  Packages<-c("data.table","NLP","tm","Matrix","SnowballC","crqanlp","qdap","wordcloud","qdapTools","ggplot2","quanteda","rpart")
+  lapply(Packages,library,character.only=TRUE)
+  rm(Packages)
+```
+
+############################################################
+#            1 - Text Extraction, Corpus Creation          #
+############################################################
+
+```{r}
+# Import file to fread as data.table
+  review<-fread("yelp_review.csv")
+
+# Trim to 1,000 obvs
+  review<-review[c(1:1000)]
+```
+
+```{r}
+# Observe the attribute within the dataset
+  str(review)
+```
+
+```{r}
+# Trim to rows we only neeeded
+  review<-review[,c(3,4,6)]
+  review<-subset(review,stars!=3)
+  review$positive<-as.factor(review$stars>3)
+  review<-review[,c(3,4)]
+
+# Create a corpus
+  Corpus<-Corpus(VectorSource(review$text))
+```
+
+############################################################
+#                    2 - Text Processing                   #
+############################################################
+
+```{r}
+# Text processing
+func<-list(tolower, removePunctuation, removeNumbers, stripWhitespace)
+Corpus<-tm_map(Corpus,FUN=tm_reduce,tmFuns=func)
+Corpus<-tm_map(Corpus, removeWords, stopwords('english'))
+Corpus<-tm_map(Corpus, stemDocument)
+```
+```{r}
+# Verify the text have been process successfully
+Corpus[[2]][1]
+
+# Find the frequent terms in the corpus
+freq<-freq_terms(Corpus,20)
+plot(freq)
+
+```
+
+#########################################################
+# STEP 3 - Create a Term Document Matrix
+#########################################################
+
+```{r}
+# Create a TDM for analysis
+CorpusTDM<-TermDocumentMatrix(Corpus)
+
+# Find the top appearing words in the Matrix
+Corpus_Matrix<-as.matrix(CorpusTDM)
+Corpus_Sum<-rowSums(Corpus_Matrix)
+Corpus_Sorted<-sort(Corpus_Sum,decreasing=T)
+Corpus_Sorted[1:30]
+as.matrix(Corpus_Sorted[1:30],nrow=50)
+
+```
