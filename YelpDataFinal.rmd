@@ -16,13 +16,14 @@ output:
 #                 1 - Extract, Transform, Load data from it's original source                 #
 ###############################################################################################
 
-# This Section read load both section of csv that we will use for the data analysis, the data are trim down to 5,000 observation in order to increase the performance of the analysis
+# This Section read load both section of csv that we will use for the data analysis, the data are trim down to 10,000 observation in order to increase the performance of the analysis
 
-```{r Extraction of data from CSV files}
+```{r Extraction of data from CSV files, dimension reduction}
     business<-read.csv("yelp_business.csv",stringsAsFactors = FALSE)
-    business<-business[c(1:5000),]
+    business<-business[c(1:10000),]
     review<-read.csv("yelp_review.csv",stringsAsFactors = FALSE)
-    review<-review[c(1:5000),]
+    review<-review[c(1:10000),]
+    qplot(data=review,stars)
 ```
 
 ```{r Data Observation & Column manipulation}
@@ -64,8 +65,9 @@ output:
 ```
 
 ###############################################################################################
-#                    4 - Exploratory analysis on text & visualization                         #
+#                    4 - Exploratory analysis on  data, text & visualization                  #
 ###############################################################################################
+
 
 ```{r Find the frequent terms in the corpus, 30 terms}
   TermFreq<-freq_terms(Corpus,30)
@@ -80,7 +82,7 @@ output:
 ```
 
 ```{r Explore the top words with bar plot}
-  barplot(CorpusSorted[1:30],ylim=c(0,3000),col="orange",las=3,xlab="Word",ylab="Frequencies")
+  barplot(CorpusSorted[1:30],ylim=c(0,6000),col="orange",las=3,xlab="Word",ylab="Frequencies")
 ```
 
 ```{r Simple words clustering & dentrogram}
@@ -105,11 +107,11 @@ output:
     All<-c(Pos,Neg)
   # Text process/TDM creation and include +/- coloumns
     All<-Corpus(VectorSource(All)) 
-    All<-tm_map(corpus_review_all, tolower)
-    All<-tm_map(corpus_review_all, removePunctuation)
-    All<-tm_map(corpus_review_all, removeWords, stopwords("english"))
-    All<-tm_map(corpus_review_all, removeWords,c("also", "get","like", "company", "made", "can", "im", "dress","just","i"))
-    All<-tm_map(corpus_review_all, stemDocument)
+    All<-tm_map(All, tolower)
+    All<-tm_map(All, removePunctuation)
+    All<-tm_map(All, removeWords, stopwords("english"))
+    All<-tm_map(All, removeWords,c("also", "get","like", "company", "made", "can", "im", "dress","just","i"))
+    All<-tm_map(All, stemDocument)
     AllTDM<-TermDocumentMatrix(All)
     AllMatrix<-as.matrix(AllTDM)
     colnames(AllMatrix)<-c("Positive","Negative")
@@ -153,15 +155,16 @@ output:
 ```
 
 ```{r Data split, 70 Training 30 Testing}
-  set.seed(200)
+  set.seed(168)
   split<-sample.split(Sparse$positive,SplitRatio=0.7)
   Sparse$split<-split
-  train<-subset(Sparse, split==TRUE)
-  test<-subset(Sparse, split==FALSE)
+  train<-subset(Sparse,split==TRUE)
+  test<-subset(Sparse,split==FALSE)
 ```
 
-```{r}
+```{r table for baseline accuracy to surpass}
   table(train$positive)
+  4564/nrow(train)
 ```
 
 ###############################################################################################
@@ -169,22 +172,25 @@ output:
 ###############################################################################################
 
 ```{r Cart Model & plot}
-CART<-rpart(positive~.,data=train,method="class")
-prp(CART)
+  CART<-rpart(positive~.,data=train,method="class")
+  prp(CART)
 ```
 
 ```{r}
-predictCART<-predict(CART,newdata=test,type="class")
-table(test$positive, predictCART)
-
-(69+936)/nrow(test)
+  predictCART<-predict(CART,newdata=test,type="class")
+  table(test$positive, predictCART)
+  
+  (188+1867)/nrow(test)
 ```
 
 ```{r}
-Num=trainControl(method = "cv", number=10)
-cpGrid = expand.grid(.cp=seq(0.01,0.1,0.01))
-train(positive~.,data=train,method="rpart",trControl=Num,tuneGrid=cpGrid)
-
-cartModelImproved = rpart(positive ~ ., data=train, method="class", cp= 0.003)
-prp(cartModelImproved)
+  Num=trainControl(method="cv",number=10)
+  cpGrid = expand.grid(.cp=seq(0.01,0.1,0.01))
+  train(positive~.,data=train,method="rpart",trControl=Num,tuneGrid=cpGrid)
+  
+  cartModelImproved = rpart(positive~.,data=train,method="class", cp= 0.003)
+  prp(cartModelImproved)
 ```
+
+###########################################################
+
