@@ -1,78 +1,190 @@
 ---
-title: "Yelp Data Analysis"
+Title: "Yelp Data Analysis"
+Student: "Timothy Mok"
+
 output:
   pdf_document: default
 ---
 
-```{r}
-# Library initiation
-  Packages<-c("data.table","NLP","tm","Matrix","SnowballC","crqanlp","qdap","wordcloud","qdapTools","ggplot2","quanteda","rpart")
+```{r Library initiation}
+  Packages<-c("data.table","NLP","tm","Matrix","SnowballC","crqanlp","qdap","wordcloud","qdapTools","ggplot2","quanteda","rpart","ggthemes","caTools","rpart.plot","glmnet","caret","plotrix")
   lapply(Packages,library,character.only=TRUE)
   rm(Packages)
 ```
 
-############################################################
-#            1 - Text Extraction, Corpus Creation          #
-############################################################
+###############################################################################################
+#                 1 - Extract, Transform, Load data from it's original source                 #
+###############################################################################################
 
-```{r}
-# Import file to fread as data.table
-  review<-fread("yelp_review.csv")
+# This Section read load both section of csv that we will use for the data analysis, the data are trim down to 5,000 observation in order to increase the performance of the analysis
 
-# Trim to 1,000 obvs
-  review<-review[c(1:1000)]
+```{r Extraction of data from CSV files}
+    business<-read.csv("yelp_business.csv",stringsAsFactors = FALSE)
+    business<-business[c(1:5000),]
+    review<-read.csv("yelp_review.csv",stringsAsFactors = FALSE)
+    review<-review[c(1:5000),]
 ```
 
-```{r}
-# Observe the attribute within the dataset
-  str(review)
+```{r Data Observation & Column manipulation}
+  # Review all attributes
+    str(review)
+    str(business)
+  # Attributes trim and review new 
+    review<-review[c("stars","text")]
+    business<-business[c("name","city","stars","review_count")]
+    str(review)
+    str(business)
+  # Removes neutral stars comment(3 stars) and include a factor to distinguish positive(4 or more stars) and negative(2 or less     stars)
+    review<-subset(review,stars!=3)
+    review$positive<-as.factor(review$stars>3)
+  # Create a positive and negative Corpus
+    reviewP<-subset(review,positive==TRUE)
+    reviewP<-reviewP["text"]
+    reviewN<-subset(review,positive==FALSE)
+    reviewN<-reviewN["text"]
 ```
 
-```{r}
-# Trim to rows we only neeeded
-  review<-review[,c(3,4,6)]
-  review<-subset(review,stars!=3)
-  review$positive<-as.factor(review$stars>3)
-  review<-review[,c(3,4)]
-
-# Create a corpus
+```{r Corpus creation & text procesisng}
   Corpus<-Corpus(VectorSource(review$text))
-```
-
-############################################################
-#                    2 - Text Processing                   #
-############################################################
-
-```{r}
-# Text processing
-func<-list(tolower, removePunctuation, removeNumbers, stripWhitespace)
-Corpus<-tm_map(Corpus,FUN=tm_reduce,tmFuns=func)
-Corpus<-tm_map(Corpus, removeWords, stopwords('english'))
-Corpus<-tm_map(Corpus, stemDocument)
-```
-```{r}
+  func<-list(removePunctuation,tolower,removeNumbers, stripWhitespace)
+  Corpus<-tm_map(Corpus,FUN=tm_reduce,tmFuns=func)
+  Corpus<-tm_map(Corpus, removeWords, stopwords('english'))
+  Corpus<-tm_map(Corpus, stemDocument)
 # Verify the text have been process successfully
-Corpus[[2]][1]
-
-# Find the frequent terms in the corpus
-freq<-freq_terms(Corpus,20)
-plot(freq)
-
+  Corpus[[5]][1]
 ```
 
-#########################################################
-# STEP 3 - Create a Term Document Matrix
-#########################################################
+###############################################################################################
+#                3 - Create a Term Document Matrix & Document Term Matrix                     #
+###############################################################################################
+
+```{r Creates a DTM and TDM for analsis with text Corpus}
+    CorpusDTM<-DocumentTermMatrix(Corpus)
+    CorpusTDM<-TermDocumentMatrix(Corpus)
+```
+
+###############################################################################################
+#                    4 - Exploratory analysis on text & visualization                         #
+###############################################################################################
+
+```{r Find the frequent terms in the corpus, 30 terms}
+  TermFreq<-freq_terms(Corpus,30)
+  plot(TermFreq)
+```
+
+```{r Find the top appearing words using the TDM Matrix}
+  CorpusMatrix<-as.matrix(CorpusTDM)
+  CorpusTotal<-rowSums(CorpusMatrix)
+  CorpusSorted<-sort(CorpusTotal,decreasing=TRUE)
+  as.matrix(CorpusSorted[1:30])
+```
+
+```{r Explore the top words with bar plot}
+  barplot(CorpusSorted[1:30],ylim=c(0,3000),col="orange",las=3,xlab="Word",ylab="Frequencies")
+```
+
+```{r Simple words clustering & dentrogram}
+  CorpusTDMx<-removeSparseTerms(CorpusTDM,sparse=0.86)
+  dentro<-hclust(d=dist(CorpusTDMx, method = "euclidean"),method="complete")
+  plot(dentro)
+```
+
+```{r Create bi-grams from Corpus}
+  bigram <- tokens(review$text)%>%
+    tokens_remove("\\p{P}",valuetype="regex",padding=TRUE)%>%
+    tokens_remove(stopwords("english"),padding=TRUE)%>%
+    tokens_ngrams(n = 2)%>%
+    dfm()
+  topfeatures(bigram)
+```
+
+```{r Pyramaid plot for negative and positive comments, common words comparison}
+  # Combining Positive and Negative comments from the original Corpus
+    Pos<-paste(reviewP,collapse="")
+    Neg<-paste(reviewN,collapse="")
+    All<-c(Pos,Neg)
+  # Text process/TDM creation and include +/- coloumns
+    All<-Corpus(VectorSource(All)) 
+    All<-tm_map(corpus_review_all, tolower)
+    All<-tm_map(corpus_review_all, removePunctuation)
+    All<-tm_map(corpus_review_all, removeWords, stopwords("english"))
+    All<-tm_map(corpus_review_all, removeWords,c("also", "get","like", "company", "made", "can", "im", "dress","just","i"))
+    All<-tm_map(corpus_review_all, stemDocument)
+    AllTDM<-TermDocumentMatrix(All)
+    AllMatrix<-as.matrix(AllTDM)
+    colnames(AllMatrix)<-c("Positive","Negative")
+    
+    comparison.cloud(AllMatrix,colors=c("green","red"),max.words=40)
+  
+  # Identifying terms shared by both documents
+    Common<-subset(AllMatrix, AllMatrix[,1] > 0 & AllMatrix[,2]>0)
+  # Calculate common & difference words
+    Difference<-abs(Common[,1]-Common[,2])
+    Common<-cbind(Common,Difference)
+    Common<-Common[order(Common[, 3],decreasing=TRUE),]
+    head(Common,10)
+  # Create DF for positive and negative count
+    TopDF<-data.frame(x=Common[1:25, 1],
+                      y=Common[1:25, 2],
+                      labels=rownames(Common[1:25, ]))
+  # Creating the pyramid plot
+    pyramid.plot(TopDF$x,TopDF$y,
+                 labels=TopDF$labels, 
+                 main="Common Words in Negative and Positive Review",
+                 gap=2000,
+                 laxlab=NULL,
+                 raxlab=NULL, 
+                 unit=NULL,
+                 top.labels=c("Positive",
+                              "Words",
+                              "Negative")
+                 )
+```
+
+###############################################################################################
+#                    5 - Remove sparsity from TDM/splitting train/testing data               #
+###############################################################################################
+
+```{r Remove Sparsity}
+  Sparse<-removeSparseTerms(CorpusDTM, 0.99)
+  Sparse<-as.data.frame(as.matrix(Sparse))
+  colnames(Sparse)<-make.names(colnames(Sparse))
+  Sparse$positive<-review$positive
+```
+
+```{r Data split, 70 Training 30 Testing}
+  set.seed(200)
+  split<-sample.split(Sparse$positive,SplitRatio=0.7)
+  Sparse$split<-split
+  train<-subset(Sparse, split==TRUE)
+  test<-subset(Sparse, split==FALSE)
+```
 
 ```{r}
-# Create a TDM for analysis
-CorpusTDM<-TermDocumentMatrix(Corpus)
+  table(train$positive)
+```
 
-# Find the top appearing words in the Matrix
-Corpus_Matrix<-as.matrix(CorpusTDM)
-Corpus_Sum<-rowSums(Corpus_Matrix)
-Corpus_Sorted<-sort(Corpus_Sum,decreasing=T)
-Corpus_Sorted[1:30]
-as.matrix(Corpus_Sorted[1:30],nrow=50)
+###############################################################################################
+#                               6 - Build the classification Model                            #
+###############################################################################################
 
+```{r Cart Model & plot}
+CART<-rpart(positive~.,data=train,method="class")
+prp(CART)
+```
+
+```{r}
+predictCART<-predict(CART,newdata=test,type="class")
+table(test$positive, predictCART)
+
+(69+936)/nrow(test)
+```
+
+```{r}
+Num=trainControl(method = "cv", number=10)
+cpGrid = expand.grid(.cp=seq(0.01,0.1,0.01))
+train(positive~.,data=train,method="rpart",trControl=Num,tuneGrid=cpGrid)
+
+cartModelImproved = rpart(positive ~ ., data=train, method="class", cp= 0.003)
+prp(cartModelImproved)
 ```
