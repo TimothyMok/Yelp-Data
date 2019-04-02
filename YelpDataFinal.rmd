@@ -1,8 +1,8 @@
 ---
-Title: "Yelp Data Analysis"
-Student: "Timothy Mok"
-
+Student: Timothy Mok
+Title: Yelp Data Analysis
 output:
+  word_document: default
   pdf_document: default
 ---
 
@@ -78,7 +78,7 @@ output:
   CorpusMatrix<-as.matrix(CorpusTDM)
   CorpusTotal<-rowSums(CorpusMatrix)
   CorpusSorted<-sort(CorpusTotal,decreasing=TRUE)
-  as.matrix(CorpusSorted[1:30])
+  CorpusSorted[1:30]
 ```
 
 ```{r Explore the top words with bar plot}
@@ -133,7 +133,7 @@ output:
     pyramid.plot(TopDF$x,TopDF$y,
                  labels=TopDF$labels, 
                  main="Common Words in Negative and Positive Review",
-                 gap=2000,
+                 gap=700,
                  laxlab=NULL,
                  raxlab=NULL, 
                  unit=NULL,
@@ -148,23 +148,23 @@ output:
 ###############################################################################################
 
 ```{r Remove Sparsity}
-  Sparse<-removeSparseTerms(CorpusDTM, 0.99)
-  Sparse<-as.data.frame(as.matrix(Sparse))
-  colnames(Sparse)<-make.names(colnames(Sparse))
-  Sparse$positive<-review$positive
+  SPR<-removeSparseTerms(CorpusDTM, 0.99)
+  SPR<-as.data.frame(as.matrix(SPR))
+  colnames(SPR)<-make.names(colnames(SPR))
+  SPR$positive<-review$positive
 ```
 
 ```{r Data split, 70 Training 30 Testing}
   set.seed(168)
-  split<-sample.split(Sparse$positive,SplitRatio=0.7)
-  Sparse$split<-split
-  train<-subset(Sparse,split==TRUE)
-  test<-subset(Sparse,split==FALSE)
+  split<-sample.split(SPR$positive,SplitRatio=0.7)
+  SPR$split<-split
+  training<-subset(SPR,split==TRUE)
+  testing<-subset(SPR,split==FALSE)
 ```
 
 ```{r table for baseline accuracy to surpass}
-  table(train$positive)
-  4564/nrow(train)
+  table(training$positive)
+  4564/nrow(training)
 ```
 
 ###############################################################################################
@@ -172,25 +172,29 @@ output:
 ###############################################################################################
 
 ```{r Cart Model & plot}
-  CART<-rpart(positive~.,data=train,method="class")
+  CART<-rpart(positive~.,data=training,method="class")
   prp(CART)
 ```
 
 ```{r}
-  predictCART<-predict(CART,newdata=test,type="class")
-  table(test$positive, predictCART)
+  pCART<-predict(CART,newdata=testing,type="class")
+  table(testing$positive, pCART)
   
   (188+1867)/nrow(test)
 ```
 
 ```{r}
-  Num=trainControl(method="cv",number=10)
-  cpGrid = expand.grid(.cp=seq(0.01,0.1,0.01))
-  train(positive~.,data=train,method="rpart",trControl=Num,tuneGrid=cpGrid)
+  Num<-trainControl(method="cv",number=10)
+  cpGrid<-expand.grid(.cp=seq(0.01,0.1,0.01))
+  train(positive~.,data=training,method="rpart",trControl=Num,tuneGrid=cpGrid)
   
-  cartModelImproved = rpart(positive~.,data=train,method="class", cp= 0.003)
-  prp(cartModelImproved)
+  PlusCART<-rpart(positive~.,data=training,method="class",cp=0.0003)
+  prp(PlusCART)
 ```
 
-###########################################################
+```{r}
+  PPlusCART<-predict(PlusCART, newdata=test, type="class")
+  table(test$positive, PPlusCART)
 
+  (272+1795)/nrow(test)
+```
