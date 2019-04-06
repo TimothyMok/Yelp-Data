@@ -2,12 +2,12 @@
 Student: Timothy Mok
 Title: Yelp Data Analysis
 output:
-  word_document: default
   pdf_document: default
+  word_document: default
 ---
 
 ```{r Library initiation}
-  Packages<-c("data.table","NLP","tm","Matrix","SnowballC","crqanlp","qdap","wordcloud","qdapTools","ggplot2","quanteda","rpart","ggthemes","caTools","rpart.plot","glmnet","caret","plotrix")
+  Packages<-c("data.table","NLP","tm","Matrix","SnowballC","crqanlp","qdap","wordcloud","qdapTools","ggplot2","quanteda","rpart","ggthemes","caTools","rpart.plot","glmnet","caret","plotrix","randomForest")
   lapply(Packages,library,character.only=TRUE)
   rm(Packages)
 ```
@@ -168,7 +168,7 @@ output:
 ```
 
 ###############################################################################################
-#                               5 - Build the classification Model                            #
+#                   5 - Building the Model(CART, Random Forest, Lasso)                        #
 ###############################################################################################
 
 ```{r Cart Model & plot}
@@ -176,14 +176,14 @@ output:
   prp(CART)
 ```
 
-```{r}
+```{r prediction for CART}
   pCART<-predict(CART,newdata=testing,type="class")
   table(testing$positive, pCART)
   
-  (188+1867)/nrow(test)
+  (188+1867)/nrow(testing)
 ```
 
-```{r}
+```{r Improved CART, with more branch}
   Num<-trainControl(method="cv",number=10)
   cpGrid<-expand.grid(.cp=seq(0.01,0.1,0.01))
   train(positive~.,data=training,method="rpart",trControl=Num,tuneGrid=cpGrid)
@@ -192,9 +192,49 @@ output:
   prp(PlusCART)
 ```
 
-```{r}
-  PPlusCART<-predict(PlusCART, newdata=test, type="class")
-  table(test$positive, PPlusCART)
+```{r prediction for Improved CART}
+  PPlusCART<-predict(PlusCART, newdata=testing, type="class")
+  table(testing$positive, PPlusCART)
 
-  (272+1795)/nrow(test)
+  (272+1795)/nrow(testing)
 ```
+
+```{r Random Forest Model}
+RFtext<-randomForest(positive~.,data=testing,ntree=1)
+varImpPlot(RFtext,cex=.7)
+```
+
+```{r Random Forest accuracy}
+  PRFtext<-predict(RFtext,newdata=testing,type="class")
+  table(testing$positive, PRFtext)
+
+  (396+1837)/nrow(testing)
+```
+
+
+```{r Lasso Logistic Regression - Cross Validation}
+  x<-model.matrix(positive~.,SPR)
+  y<-as.numeric(SPR$positive)
+  out<-cv.glmnet(x,y,alpha=1,family="binomial",type.measure = "class")
+  plot(out)
+```
+
+```{r Create Lambda Coef to file}
+  lambdamin<-out$lambda.min
+  lambda1se<-out$lambda.1se
+  lambda1se
+  coef=coef(out,s=lambda1se)
+  lassocoef=as.matrix(coef(out,s=lambda1se))
+  write.csv(lassocoef,"lassocoef.csv")
+```
+
+```{r Finding the best lambda using cross-validation}
+  set.seed(123) 
+  cv.lasso<-cv.glmnet(x,y,alpha=1,family="binomial")
+  review_logreg <- glmnet(x, y, alpha= 1, family = "binomial",lambda = cv.lasso$lambda.min)
+  logregcoef=as.matrix(coef(review_logreg))
+  odds_ratio=as.matrix(exp(coef(review_logreg)))
+  write.csv(logregcoef,"logregcoef.csv")
+  write.csv(odds_ratio,"oddsratio.csv")
+```
+
